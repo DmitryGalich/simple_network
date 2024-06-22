@@ -1,6 +1,11 @@
 #pragma once
 
 #include <memory>
+#include <atomic>
+#include <queue>
+#include <string>
+#include <thread>
+#include <condition_variable>
 #include <mutex>
 
 #define LOG(message) libs::logger::Logger::instance()->print(message)
@@ -16,15 +21,18 @@ namespace libs
 
             void init(const std::string &filePath);
             void print(const std::string &message);
+            ~Logger();
 
         private:
-            Logger() = default;
+            Logger();
+            void writeToFile();
 
-            bool saveToFile(const std::string &message);
-
-        private:
             std::string filePath_;
-            std::mutex mtx_;
+            std::atomic<bool> running_;
+            std::queue<std::string> messageQueue_;
+            std::thread workerThread_;
+            std::mutex queueMutex_;
+            std::condition_variable condition_;
         };
     }
 }

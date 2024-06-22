@@ -1,0 +1,17 @@
+[
+{
+  "directory": "/workspaces/simple_network/build/apps/server/console_server",
+  "command": "/usr/bin/aarch64-linux-gnu-g++  -I/workspaces/simple_network/libs/logger  -Wall -Wextra -Wpedantic -Werror -g -std=gnu++23 -o CMakeFiles/console_server.dir/main.cpp.o -c /workspaces/simple_network/apps/server/console_server/main.cpp",
+  "file": "/workspaces/simple_network/apps/server/console_server/main.cpp"
+},
+{
+  "directory": "/workspaces/simple_network/build/apps/client/console_client",
+  "command": "/usr/bin/aarch64-linux-gnu-g++    -Wall -Wextra -Wpedantic -Werror -g -std=gnu++23 -o CMakeFiles/console_client.dir/main.cpp.o -c /workspaces/simple_network/apps/client/console_client/main.cpp",
+  "file": "/workspaces/simple_network/apps/client/console_client/main.cpp"
+},
+{
+  "directory": "/workspaces/simple_network/build/libs/logger",
+  "command": "/usr/bin/aarch64-linux-gnu-g++  -I/workspaces/simple_network/libs/logger  -Wall -Wextra -Wpedantic -Werror -g -std=gnu++23 -o CMakeFiles/logger.dir/logger.cpp.o -c /workspaces/simple_network/libs/logger/logger.cpp",
+  "file": "/workspaces/simple_network/libs/logger/logger.cpp"
+}
+]

@@ -1,0 +1,2 @@
+/usr/bin/aarch64-linux-gnu-ar qc liblogger.a CMakeFiles/logger.dir/logger.cpp.o
+/usr/bin/aarch64-linux-gnu-ranlib liblogger.a

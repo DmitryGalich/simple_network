@@ -4,11 +4,15 @@
 
 #include "logger.h"
 
+#include <atomic>
+
+std::atomic_int64_t counter = 0;
+
 void fun(int n)
 {
     for (int i = 0; i < n; ++i)
     {
-        LOG("KEK define");
+        LOG(std::to_string(++counter));
     }
 }
 
