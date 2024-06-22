@@ -2,6 +2,27 @@
 
 #include <iostream>
 #include <fstream>
+#include <chrono>
+#include <iomanip>
+#include <ctime>
+
+namespace
+{
+    std::string getCurrentTime()
+    {
+        auto now = std::chrono::system_clock::now();
+        auto now_time_t = std::chrono::system_clock::to_time_t(now);
+        auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+
+        std::tm now_tm = *std::localtime(&now_time_t);
+
+        std::ostringstream oss;
+        oss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
+        oss << '.' << std::setw(3) << std::setfill('0') << now_ms.count();
+
+        return oss.str();
+    }
+}
 
 namespace libs
 {
@@ -37,7 +58,7 @@ namespace libs
         {
             {
                 std::lock_guard<std::mutex> lock(queueMutex_);
-                messageQueue_.push(message);
+                messageQueue_.push("[" + getCurrentTime() + "] " + message);
             }
             condition_.notify_one();
         }
