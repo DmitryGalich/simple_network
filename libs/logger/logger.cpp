@@ -5,22 +5,32 @@
 #include <chrono>
 #include <iomanip>
 #include <ctime>
-
+#include <sstream>
+#include <string>
 namespace
 {
     std::string getCurrentTime()
     {
         auto now = std::chrono::system_clock::now();
-        auto now_time_t = std::chrono::system_clock::to_time_t(now);
-        auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+        auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() % 1000;
+        std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
 
-        std::tm now_tm = *std::localtime(&now_time_t);
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&currentTime), "%Y-%m-%d %H:%M:%S.") << std::setw(3) << std::setfill('0') << microseconds;
+        return ss.str();
+    }
 
-        std::ostringstream oss;
-        oss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
-        oss << '.' << std::setw(3) << std::setfill('0') << now_ms.count();
+    bool writeToFile(const std::string &filePath, const std::string &message)
+    {
+        std::ofstream f;
+        f.open(filePath, std::ios::app);
+        if (!f.is_open())
+            return false;
 
-        return oss.str();
+        f << message << '\n';
+        f.close();
+
+        return true;
     }
 }
 
@@ -34,9 +44,9 @@ namespace libs
             return instance;
         }
 
-        Logger::Logger() : running_(true)
+        Logger::Logger() : running_(false)
         {
-            workerThread_ = std::thread(&Logger::writeToFile, this);
+            workerThread_ = std::thread(&Logger::doLog, this);
         }
 
         Logger::~Logger()
@@ -49,12 +59,19 @@ namespace libs
             }
         }
 
-        void Logger::init(const std::string &filePath)
+        bool Logger::init(const std::string &filePath)
         {
             Logger::instance()->filePath_ = filePath;
+
+            if (writeToFile(filePath_, "Init message"))
+                return true;
+
+            Logger::instance()->filePath_ = "";
+            std::cerr << "Error while creating file: " << filePath << std::endl;
+            return false;
         }
 
-        void Logger::print(const std::string &message)
+        void Logger::signalToLog(const std::string &message)
         {
             {
                 std::lock_guard<std::mutex> lock(queueMutex_);
@@ -63,34 +80,28 @@ namespace libs
             condition_.notify_one();
         }
 
-        void Logger::writeToFile()
+        void Logger::doLog()
         {
+            running_.store(true);
+
             while (running_.load() || !messageQueue_.empty())
             {
-                std::unique_lock<std::mutex> lock(queueMutex_);
-                condition_.wait(lock, [this]
+                std::unique_lock<std::mutex> queueLock(queueMutex_);
+                condition_.wait(queueLock, [this]
                                 { return !messageQueue_.empty() || !running_.load(); });
 
                 while (!messageQueue_.empty())
                 {
                     std::string message = messageQueue_.front();
                     messageQueue_.pop();
-                    lock.unlock();
+                    queueLock.unlock();
 
                     std::cout << message << std::endl;
 
-                    std::ofstream f(filePath_, std::ios::app);
-                    if (f.is_open())
-                    {
-                        f << message << '\n';
-                        f.close();
-                    }
-                    else
-                    {
+                    if (!writeToFile(filePath_, message))
                         std::cerr << "Error while writing to file: " << filePath_ << std::endl;
-                    }
 
-                    lock.lock();
+                    queueLock.lock();
                 }
             }
         }

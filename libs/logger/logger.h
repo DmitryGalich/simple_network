@@ -8,7 +8,7 @@
 #include <condition_variable>
 #include <mutex>
 
-#define LOG(message) libs::logger::Logger::instance()->print(message)
+#define LOG(message) libs::logger::Logger::instance()->signalToLog(message)
 
 namespace libs
 {
@@ -19,13 +19,13 @@ namespace libs
         public:
             static std::shared_ptr<Logger> instance();
 
-            void init(const std::string &filePath);
-            void print(const std::string &message);
+            bool init(const std::string &filePath);
+            void signalToLog(const std::string &message);
             ~Logger();
 
         private:
             Logger();
-            void writeToFile();
+            void doLog();
 
             std::string filePath_;
             std::atomic<bool> running_;

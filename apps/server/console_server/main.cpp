@@ -1,48 +1,30 @@
-#include <iostream>
-#include <thread>
-#include <vector>
-
 #include "logger.h"
 
-#include <iomanip>
-#include <sstream>
+#include <thread>
+#include <fstream>
+#include <iostream>
 
-#include <chrono>
-#include <iomanip>
-#include <ctime>
-
-std::atomic_int64_t counter = 0;
-
-void fun(int n)
+void fun()
 {
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < 100; ++i)
     {
-        LOG(std::to_string(++counter));
+        LOG(std::to_string(i));
     }
 }
 
 int main()
 {
-    libs::logger::Logger::instance()->init("log.txt");
-    // LOG("KEK define");
-    // LOG("KEK define1");
 
-    const int kThreadsNum = 100;
-    const int kCounts = 100;
+    if (!libs::logger::Logger::instance()->init("log.txt"))
+        return -1;
 
-    std::vector<std::thread> threads;
-    threads.reserve(kThreadsNum);
+    LOG("KEK");
 
-    for (int i = 0; i < kThreadsNum; ++i)
-    {
-        threads.emplace_back(std::thread(fun, kCounts));
-    }
+    std::thread funThread(fun);
+    funThread.join();
 
-    for (auto &thread : threads)
-    {
-        if (thread.joinable())
-            thread.join();
-    }
+    std::thread funThread1(fun);
+    funThread1.join();
 
     return 0;
 }
