@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
 namespace libs
 {
@@ -11,15 +12,23 @@ namespace libs
             class Server
             {
             public:
-                Server() = delete;
-                Server(const std::string &address, const int port);
+                struct Config
+                {
+                    std::string address_{"127.0.0.1"};
+                    int port_{8080};
+                    int maxEvents_ = 10;
+                    int maxClients_ = 10;
+                };
+
+                Server();
                 ~Server();
 
-                bool run();
+                bool start(const Config &config);
+                void stop();
 
             private:
-                const std::string address_;
-                const int port_;
+                class ServerImpl;
+                std::unique_ptr<ServerImpl> serverImpl_;
             };
         }
     }
