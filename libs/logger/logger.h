@@ -21,7 +21,10 @@ namespace libs
 
             bool init(const std::string &filePath);
             void signalToLog(const std::string &message);
+
             ~Logger();
+            Logger(Logger &other) = delete;
+            void operator=(const Logger &) = delete;
 
         private:
             Logger();

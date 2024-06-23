@@ -6,4 +6,5 @@ add_executable(${APP_TITLE} main.cpp)
 target_link_libraries(${APP_TITLE}
     PRIVATE
         Libs::Logger
+        Libs::Network
 )
