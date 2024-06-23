@@ -18,8 +18,9 @@ int main()
             return -1;
         }
 
-        libs::network::server::Server server;
-        if (!server.start({kAddress, port}))
+        libs::network::server::Server server([&](const std::string &message)
+                                             { LOG(message); });
+        if (!server.start({kAddress, port, 10, 10}))
         {
             LOG("Can't run server: " + kAddress + ":" + std::to_string(port));
             return -1;

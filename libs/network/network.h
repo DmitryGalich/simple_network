@@ -2,6 +2,7 @@
 
 #include <string>
 #include <memory>
+#include <functional>
 
 namespace libs
 {
@@ -20,7 +21,8 @@ namespace libs
                     int maxClients_ = 10;
                 };
 
-                Server();
+                Server() = delete;
+                Server(std::function<void(const std::string &)> logCallback);
                 ~Server();
 
                 bool start(const Config &config);
