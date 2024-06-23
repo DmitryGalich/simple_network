@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <atomic>
+
 namespace libs
 {
     namespace network
@@ -15,11 +17,6 @@ namespace libs
 
             class Server::ServerImpl
             {
-                enum class ClosingMode
-                {
-                    Socket = 0,
-                    SocketAndEpoll
-                };
 
             public:
                 ServerImpl() = delete;
@@ -31,26 +28,32 @@ namespace libs
 
                 bool start(const Server::Config &config)
                 {
+                    if (!isRunning_.load())
+                    {
+                        logCallback_("Server already started");
+                        return false;
+                    }
+
                     logCallback_("Starting server");
 
                     config_ = config;
+                    if (!configure())
+                        return false;
 
-                    if (isRunning_)
-                        stop();
+                    logCallback_("Server started. Listening on port: " + std::to_string(config_.port_));
 
-                    configure();
+                    if (!runListeningCycle())
+                        return false;
 
-                    isRunning_ = true;
                     return true;
                 }
                 void stop()
                 {
-                    if (!isRunning_)
+                    if (!isRunning_.load())
                         return;
 
                     logCallback_("Stopping server");
-
-                    isRunning_ = false;
+                    isRunning_.store(false);
                 }
 
             private:
@@ -59,8 +62,11 @@ namespace libs
                     logCallback_("Configuring server");
 
                     serverSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
-                    if (serverSocketFD_ == -1)
+                    if (serverSocketFD_ == kIncorrectSocketValue_)
+                    {
+                        logCallback_("Failed to create socket");
                         return false;
+                    }
 
                     struct sockaddr_in serverAddress;
                     serverAddress.sin_family = AF_INET;
@@ -69,6 +75,31 @@ namespace libs
 
                     if (bind(serverSocketFD_, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) == -1)
                     {
+                        logCallback_("Failed to bind socket");
+                        closeConnection();
+                        return false;
+                    }
+
+                    if (listen(serverSocketFD_, config_.maxClients_) == -1)
+                    {
+                        logCallback_("Failed to listen socket");
+                        closeConnection();
+                        return false;
+                    }
+
+                    epollFD_ = epoll_create1(0);
+                    if (epollFD_ == kIncorrectSocketValue_)
+                    {
+                        logCallback_("Failed to create epoll instance");
+                        closeConnection();
+                        return false;
+                    }
+
+                    event.events = EPOLLIN;
+                    event.data.fd = serverSocketFD_;
+                    if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, serverSocketFD_, &event) == -1)
+                    {
+                        logCallback_("Failed to add server socket to epoll instance");
                         closeConnection();
                         return false;
                     }
@@ -76,31 +107,46 @@ namespace libs
                     return true;
                 };
 
-                void closeConnection(const ClosingMode mode = ClosingMode::Socket)
+                bool runListeningCycle()
                 {
-                    switch (mode)
+                    isRunning_.store(true);
+
+                    while (isRunning_.load())
                     {
-                    case ClosingMode::SocketAndEpoll:
+                        logCallback_("KEK");
+                    }
+
+                    closeConnection();
+                    return true;
+                }
+
+                void closeConnection()
+                {
+                    logCallback_("Closing connection");
+
+                    if (epollFD_ != kIncorrectSocketValue_)
                         close(epollFD_);
+
+                    if (serverSocketFD_ != kIncorrectSocketValue_)
                         close(serverSocketFD_);
-                        break;
-                    case ClosingMode::Socket:
-                        close(serverSocketFD_);
-                        break;
-                    default:
-                    {
-                    }
-                    }
+
+                    serverSocketFD_ = kIncorrectSocketValue_;
+                    epollFD_ = kIncorrectSocketValue_;
                 }
 
             private:
-                bool isRunning_{false};
                 Server::Config config_;
 
-                int serverSocketFD_{-1};
-                int epollFD_{-1};
+                const int kIncorrectSocketValue_{-1};
+                int serverSocketFD_{kIncorrectSocketValue_};
+                int epollFD_{kIncorrectSocketValue_};
+
+                struct epoll_event event;
+                std::unique_ptr<struct epoll_event[]> events_;
 
                 std::function<void(const std::string &)> logCallback_;
+
+                std::atomic<bool> isRunning_;
             };
 
             Server::Server(std::function<void(const std::string &)> logCallback) : serverImpl_(std::make_unique<Server::ServerImpl>(logCallback)) {}
