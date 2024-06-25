@@ -19,6 +19,7 @@ namespace libs
                     int port_{8080};
                     int maxEvents_ = 10;
                     int maxClients_ = 10;
+                    int waitingTimeout_ = 100;
                 };
 
                 Server() = delete;

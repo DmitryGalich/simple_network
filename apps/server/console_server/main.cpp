@@ -13,7 +13,13 @@ void wait_for_user_command(libs::network::server::Server &server)
 {
     while (true)
     {
-        if ((std::cin.get() == 'q') || (std::cin.get() == 'Q'))
+        std::string input;
+        getline(std::cin, input);
+
+        if (input == "q" ||
+            input == "Q" ||
+            input == "c" ||
+            input == "C")
         {
             server.stop();
             break;
@@ -41,11 +47,9 @@ int main()
                                              { LOG(message); });
 
         std::future<void> user_command_future = std::async(&wait_for_user_command, std::ref(server));
+        LOG("Input \'q\' to quit");
 
-        if (false)
-            return -1;
-
-        if (!server.start({kAddress, port, 10, 10}))
+        if (!server.start({kAddress, port, 10, 10, 500}))
         {
             LOG("Can't run server: " + kAddress + ":" + std::to_string(port));
             return -1;

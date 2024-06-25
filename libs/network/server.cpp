@@ -20,7 +20,9 @@ namespace libs
 
             public:
                 ServerImpl() = delete;
-                ServerImpl(std::function<void(const std::string &)> logCallback) : logCallback_(logCallback) {}
+                ServerImpl(std::function<void(const std::string &)> logCallback) : logCallback_(logCallback)
+                {
+                }
                 ~ServerImpl()
                 {
                     stop();
@@ -28,19 +30,17 @@ namespace libs
 
                 bool start(const Server::Config &config)
                 {
-                    if (!isRunning_.load())
+                    if (isRunning_.load())
                     {
                         logCallback_("Server already started");
                         return false;
                     }
 
-                    logCallback_("Starting server");
-
                     config_ = config;
                     if (!configure())
                         return false;
 
-                    logCallback_("Server started. Listening on port: " + std::to_string(config_.port_));
+                    logCallback_("Server configured on port: " + std::to_string(config_.port_));
 
                     if (!runListeningCycle())
                         return false;
@@ -49,9 +49,6 @@ namespace libs
                 }
                 void stop()
                 {
-                    if (!isRunning_.load())
-                        return;
-
                     logCallback_("Stopping server");
                     isRunning_.store(false);
                 }
@@ -111,10 +108,21 @@ namespace libs
                 {
                     isRunning_.store(true);
 
+                    logCallback_("Listening cycle started");
+
                     while (isRunning_.load())
                     {
-                        logCallback_("KEK");
+                        int numEvents = epoll_wait(epollFD_, events_.get(), config_.maxEvents_, config_.waitingTimeout_);
+                        if (numEvents == -1)
+                        {
+                            logCallback_("numEvents == -1");
+                            continue;
+                        }
+
+                        logCallback_("numEvents: " + std::to_string(numEvents));
                     }
+
+                    logCallback_("Escape from listening cycle");
 
                     closeConnection();
                     return true;
@@ -146,7 +154,7 @@ namespace libs
 
                 std::function<void(const std::string &)> logCallback_;
 
-                std::atomic<bool> isRunning_;
+                std::atomic<bool> isRunning_{false};
             };
 
             Server::Server(std::function<void(const std::string &)> logCallback) : serverImpl_(std::make_unique<Server::ServerImpl>(logCallback)) {}
