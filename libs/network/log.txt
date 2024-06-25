@@ -1,0 +1,59 @@
+Init message
+[2024-06-25 17:54:17.380] Input 'q' to quit
+[2024-06-25 17:54:17.380] Configuring server
+[2024-06-25 17:54:17.380] Server configured on port: 8080
+[2024-06-25 17:54:17.380] Listening cycle started
+[2024-06-25 17:54:17.886] numEvents: 0
+[2024-06-25 17:54:18.389] numEvents: 0
+[2024-06-25 17:54:18.891] numEvents: 0
+[2024-06-25 17:54:19.397] numEvents: 0
+[2024-06-25 17:54:19.901] numEvents: 0
+[2024-06-25 17:54:20.407] numEvents: 0
+[2024-06-25 17:54:20.658] Stopping server
+[2024-06-25 17:54:20.913] numEvents: 0
+[2024-06-25 17:54:20.914] Escape from listening cycle
+[2024-06-25 17:54:20.914] Closing connection
+[2024-06-25 17:54:20.914] Stopping server
+[2024-06-25 17:54:20.914] Stopping server
+Init message
+[2024-06-25 18:03:09.321] Input 'q' to quit
+[2024-06-25 18:03:09.321] Configuring client
+[2024-06-25 18:03:09.321] Client configured on port: 8080
+[2024-06-25 18:03:09.321] Listening cycle started
+[2024-06-25 18:03:11.748] Stopping client
+[2024-06-25 18:03:11.748] Escape from listening cycle
+[2024-06-25 18:03:11.748] Closing connection
+[2024-06-25 18:03:11.748] Stopping client
+[2024-06-25 18:03:11.748] Stopping client
+Init message
+[2024-06-25 18:10:27.131] Input 'q' to quit
+[2024-06-25 18:10:27.131] Configuring server
+[2024-06-25 18:10:27.131] Server configured on port: 8080
+[2024-06-25 18:10:27.131] Listening cycle started
+[2024-06-25 18:10:27.634] numEvents: 0
+[2024-06-25 18:10:28.138] numEvents: 0
+[2024-06-25 18:10:28.641] numEvents: 0
+[2024-06-25 18:10:29.147] numEvents: 0
+[2024-06-25 18:10:29.420] Stopping server
+[2024-06-25 18:10:29.649] numEvents: 0
+[2024-06-25 18:10:29.649] Escape from listening cycle
+[2024-06-25 18:10:29.649] Closing connection
+[2024-06-25 18:10:29.649] Stopping server
+[2024-06-25 18:10:29.649] Stopping server
+Init message
+[2024-06-25 18:31:48.372] Input 'q' to quit
+[2024-06-25 18:31:48.372] Configuring server
+[2024-06-25 18:31:48.372] Server configured on port: 8080
+[2024-06-25 18:31:48.372] Listening cycle started
+[2024-06-25 18:31:48.873] numEvents: 0
+[2024-06-25 18:31:49.379] numEvents: 0
+[2024-06-25 18:31:49.880] numEvents: 0
+[2024-06-25 18:31:50.387] numEvents: 0
+[2024-06-25 18:31:50.888] numEvents: 0
+[2024-06-25 18:31:51.389] numEvents: 0
+[2024-06-25 18:31:51.891] numEvents: 0
+[2024-06-25 18:31:52.395] numEvents: 0
+[2024-06-25 18:31:52.773] Stopping server
+[2024-06-25 18:31:52.897] numEvents: 0
+[2024-06-25 18:31:52.897] Escape from listening cycle
+[2024-06-25 18:31:52.897] Closing connection

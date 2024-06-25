@@ -20,6 +20,13 @@ namespace libs
 
             public:
                 ServerImpl() = delete;
+
+                ServerImpl(const ServerImpl &) = default;
+                ServerImpl &operator=(const ServerImpl &) = default;
+
+                ServerImpl(const ServerImpl &&) = delete;
+                ServerImpl &operator=(const ServerImpl &&) = delete;
+
                 ServerImpl(std::function<void(const std::string &)> logCallback) : logCallback_(logCallback)
                 {
                 }
@@ -49,6 +56,9 @@ namespace libs
                 }
                 void stop()
                 {
+                    if (!isRunning_.load())
+                        return;
+
                     logCallback_("Stopping server");
                     isRunning_.store(false);
                 }
@@ -92,11 +102,19 @@ namespace libs
                         return false;
                     }
 
-                    event.events = EPOLLIN;
-                    event.data.fd = serverSocketFD_;
-                    if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, serverSocketFD_, &event) == -1)
+                    event_.events = EPOLLIN;
+                    event_.data.fd = serverSocketFD_;
+                    if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, serverSocketFD_, &event_) == -1)
                     {
                         logCallback_("Failed to add server socket to epoll instance");
+                        closeConnection();
+                        return false;
+                    }
+
+                    events_ = std::make_unique<struct epoll_event[]>(config_.maxEvents_);
+                    if (!events_)
+                    {
+                        logCallback_("Failed to create epoll events array");
                         closeConnection();
                         return false;
                     }
@@ -132,6 +150,8 @@ namespace libs
                 {
                     logCallback_("Closing connection");
 
+                    events_.reset();
+
                     if (epollFD_ != kIncorrectSocketValue_)
                         close(epollFD_);
 
@@ -149,7 +169,7 @@ namespace libs
                 int serverSocketFD_{kIncorrectSocketValue_};
                 int epollFD_{kIncorrectSocketValue_};
 
-                struct epoll_event event;
+                struct epoll_event event_;
                 std::unique_ptr<struct epoll_event[]> events_;
 
                 std::function<void(const std::string &)> logCallback_;
