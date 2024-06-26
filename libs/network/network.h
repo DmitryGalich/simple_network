@@ -51,10 +51,18 @@ namespace libs
                 {
                     std::string address_{"127.0.0.1"};
                     int port_{8080};
+                    int reconnectingTimeoutMs_ = 500;
                 };
 
                 Client() = delete;
                 Client(std::function<void(const std::string &)> logCallback);
+
+                Client(const Client &) = default;
+                Client &operator=(const Client &) = default;
+
+                Client(const Client &&) = delete;
+                Client &operator=(const Client &&) = delete;
+
                 ~Client();
 
                 bool start(const Config &config);

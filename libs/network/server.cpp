@@ -44,6 +44,7 @@ namespace libs
                     }
 
                     config_ = config;
+
                     if (!configure())
                         return false;
 
@@ -80,14 +81,14 @@ namespace libs
                     serverAddress.sin_addr.s_addr = inet_addr(config_.address_.c_str());
                     serverAddress.sin_port = htons(config_.port_);
 
-                    if (bind(serverSocketFD_, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) == -1)
+                    if (bind(serverSocketFD_, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
                     {
                         logCallback_("Failed to bind socket");
                         closeConnection();
                         return false;
                     }
 
-                    if (listen(serverSocketFD_, config_.maxClients_) == -1)
+                    if (listen(serverSocketFD_, config_.maxClients_) < 0)
                     {
                         logCallback_("Failed to listen socket");
                         closeConnection();

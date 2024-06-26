@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <cstring>
 
 #include <atomic>
 
@@ -14,10 +15,8 @@ namespace libs
     {
         namespace client
         {
-
             class Client::ClientImpl
             {
-
             public:
                 ClientImpl() = delete;
                 ClientImpl(std::function<void(const std::string &)> logCallback) : logCallback_(logCallback)
@@ -37,13 +36,29 @@ namespace libs
                     }
 
                     config_ = config;
-                    if (!configure())
-                        return false;
 
-                    logCallback_("Client configured on port: " + std::to_string(config_.port_));
+                    isRunning_.store(true);
 
-                    if (!runListeningCycle())
-                        return false;
+                    // Configuring cycle
+                    while (isRunning_.load())
+                    {
+                        if (!configure())
+                            isRunning_.store(false);
+                        else
+                            logCallback_("Client configured on port: " + std::to_string(config_.port_));
+
+                        // Connecting cycle
+                        while (isRunning_.load())
+                        {
+                            if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) < 0)
+                            {
+                                logCallback_("Failed to create socket");
+                                isRunning_.store(false);
+                            }
+                        }
+
+                        closeConnection();
+                    }
 
                     return true;
                 }
@@ -62,54 +77,22 @@ namespace libs
                     logCallback_("Configuring client");
 
                     clientSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
-                    if (clientSocketFD_ == kIncorrectSocketValue_)
+                    if (clientSocketFD_ < 0)
                     {
                         logCallback_("Failed to create socket");
                         return false;
                     }
 
-                    struct sockaddr_in clientAddress;
-                    clientAddress.sin_family = AF_INET;
-                    clientAddress.sin_addr.s_addr = inet_addr(config_.address_.c_str());
-                    clientAddress.sin_port = htons(config_.port_);
+                    serverAddr_ = std::make_unique<sockaddr_in>();
+                    memset(serverAddr_.get(), 0, sizeof(sockaddr_in));
+                    serverAddr_->sin_family = AF_INET;
+                    serverAddr_->sin_port = htons(config_.port_);
 
-                    int status = connect(clientSocketFD_,
-                                         (sockaddr *)&clientAddress, sizeof(clientAddress));
-                    if (status < 0)
+                    if (inet_pton(AF_INET, config_.address_.c_str(), &serverAddr_->sin_addr) <= 0)
                     {
-                        return -1;
+                        logCallback_("Invalid address/ Address not supported");
+                        return false;
                     }
-
-                    // if (bind(clientSocketFD_, (struct sockaddr *)&clientAddress, sizeof(clientAddress)) == -1)
-                    // {
-                    //     logCallback_("Failed to bind socket");
-                    //     closeConnection();
-                    //     return false;
-                    // }
-
-                    // if (listen(clientSocketFD_, config_.maxClients_) == -1)
-                    // {
-                    //     logCallback_("Failed to listen socket");
-                    //     closeConnection();
-                    //     return false;
-                    // }
-
-                    // epollFD_ = epoll_create1(0);
-                    // if (epollFD_ == kIncorrectSocketValue_)
-                    // {
-                    //     logCallback_("Failed to create epoll instance");
-                    //     closeConnection();
-                    //     return false;
-                    // }
-
-                    // event.events = EPOLLIN;
-                    // event.data.fd = clientSocketFD_;
-                    // if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, clientSocketFD_, &event) == -1)
-                    // {
-                    //     logCallback_("Failed to add client socket to epoll instance");
-                    //     closeConnection();
-                    //     return false;
-                    // }
 
                     return true;
                 };
@@ -118,10 +101,23 @@ namespace libs
                 {
                     isRunning_.store(true);
 
-                    logCallback_("Listening cycle started");
+                    logCallback_("Connecting cycle started");
 
                     while (isRunning_.load())
                     {
+                        logCallback_("Try to connect");
+
+                        if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) < 0)
+                        {
+                            logCallback_("Failed to create socket");
+                            return false;
+                        }
+
+                        logCallback_("Connected");
+
+                        while (isRunning_.load())
+                        {
+                        }
                     }
 
                     logCallback_("Escape from listening cycle");
@@ -133,6 +129,8 @@ namespace libs
                 void closeConnection()
                 {
                     logCallback_("Closing connection");
+
+                    serverAddr_.reset();
 
                     if (clientSocketFD_ != kIncorrectSocketValue_)
                         close(clientSocketFD_);
@@ -147,6 +145,8 @@ namespace libs
                 int clientSocketFD_{kIncorrectSocketValue_};
 
                 std::function<void(const std::string &)> logCallback_;
+
+                std::unique_ptr<sockaddr_in> serverAddr_;
 
                 std::atomic<bool> isRunning_{false};
             };
