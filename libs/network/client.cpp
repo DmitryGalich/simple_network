@@ -43,13 +43,15 @@ namespace libs
 
                     isRunning_.store(true);
 
-                    // Connecting cycle
                     while (isRunning_.load())
                     {
                         if (configure())
                         {
                             if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) == 0)
                             {
+                                logCallback_("Connected to server: " + config_.address_ + ":" + std::to_string(config_.port_));
+                                logCallback_("Sending to server: " + config_.title_);
+
                                 if (!send(clientSocketFD_, config_.title_.c_str(), config_.title_.size(), 0))
                                 {
                                     logCallback_("Failed to send to server");
