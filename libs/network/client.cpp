@@ -8,6 +8,8 @@
 #include <cstring>
 
 #include <atomic>
+#include <thread>
+#include <chrono>
 
 namespace libs
 {
@@ -37,27 +39,34 @@ namespace libs
 
                     config_ = config;
 
+                    logCallback_("Client configured on port: " + std::to_string(config_.port_));
+
                     isRunning_.store(true);
 
-                    // Configuring cycle
+                    // Connecting cycle
                     while (isRunning_.load())
                     {
-                        if (!configure())
-                            isRunning_.store(false);
-                        else
-                            logCallback_("Client configured on port: " + std::to_string(config_.port_));
-
-                        // Connecting cycle
-                        while (isRunning_.load())
+                        if (configure())
                         {
-                            if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) < 0)
+                            if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) == 0)
                             {
-                                logCallback_("Failed to create socket");
-                                isRunning_.store(false);
+                                if (!send(clientSocketFD_, config_.title_.c_str(), config_.title_.size(), 0))
+                                {
+                                    logCallback_("Failed to send to server");
+                                }
                             }
+                            else
+                            {
+                                logCallback_("Failed to connect to server");
+                            }
+                        }
+                        else
+                        {
+                            logCallback_("Failed to configure client");
                         }
 
                         closeConnection();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(config_.reconnectingTimeoutMs_));
                     }
 
                     return true;
@@ -96,35 +105,6 @@ namespace libs
 
                     return true;
                 };
-
-                bool runListeningCycle()
-                {
-                    isRunning_.store(true);
-
-                    logCallback_("Connecting cycle started");
-
-                    while (isRunning_.load())
-                    {
-                        logCallback_("Try to connect");
-
-                        if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) < 0)
-                        {
-                            logCallback_("Failed to create socket");
-                            return false;
-                        }
-
-                        logCallback_("Connected");
-
-                        while (isRunning_.load())
-                        {
-                        }
-                    }
-
-                    logCallback_("Escape from listening cycle");
-
-                    closeConnection();
-                    return true;
-                }
 
                 void closeConnection()
                 {

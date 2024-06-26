@@ -49,7 +49,7 @@ int main()
         std::future<void> user_command_future = std::async(&wait_for_user_command, std::ref(client));
         LOG("Input \'q\' to quit");
 
-        if (!client.start({kAddress, port}))
+        if (!client.start({"client", kAddress, port}))
         {
             LOG("Can't run client: " + kAddress + ":" + std::to_string(port));
             return -1;
