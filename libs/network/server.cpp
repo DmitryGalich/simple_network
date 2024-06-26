@@ -61,14 +61,12 @@ namespace libs
                     if (!isRunning_.load())
                         return;
 
-                    logCallback_("Stopping server");
                     isRunning_.store(false);
                 }
 
             private:
                 bool configure()
                 {
-                    logCallback_("Configuring server");
 
                     serverSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
                     if (serverSocketFD_ == kIncorrectSocketValue_)
@@ -145,8 +143,6 @@ namespace libs
 
                     isRunning_.store(true);
 
-                    logCallback_("Listening cycle started");
-
                     while (isRunning_.load())
                     {
                         int numEvents = epoll_wait(epollFD_, events_.get(), config_.maxEvents_, config_.waitingTimeout_);
@@ -155,8 +151,6 @@ namespace libs
                             logCallback_("numEvents == -1");
                             continue;
                         }
-
-                        logCallback_("numEvents: " + std::to_string(numEvents));
 
                         for (int i = 0; i < numEvents; ++i)
                         {
@@ -170,8 +164,6 @@ namespace libs
                                     logCallback_("Failed to accept client connection");
                                     continue;
                                 }
-
-                                logCallback_("Accepted");
 
                                 event_.events = EPOLLIN;
                                 event_.data.fd = clientFd;
@@ -194,16 +186,12 @@ namespace libs
                         }
                     }
 
-                    logCallback_("Escape from listening cycle");
-
                     closeConnection();
                     return true;
                 }
 
                 void closeConnection()
                 {
-                    logCallback_("Closing connection");
-
                     events_.reset();
 
                     if (epollFD_ != kIncorrectSocketValue_)

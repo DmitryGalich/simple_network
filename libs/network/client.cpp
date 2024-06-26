@@ -39,8 +39,6 @@ namespace libs
 
                     config_ = config;
 
-                    logCallback_("Client configured on port: " + std::to_string(config_.port_));
-
                     isRunning_.store(true);
 
                     while (isRunning_.load())
@@ -49,7 +47,6 @@ namespace libs
                         {
                             if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) == 0)
                             {
-                                logCallback_("Connected to server: " + config_.address_ + ":" + std::to_string(config_.port_));
                                 logCallback_("Sending to server: " + config_.title_);
 
                                 if (!send(clientSocketFD_, config_.title_.c_str(), config_.title_.size(), 0))
@@ -85,8 +82,6 @@ namespace libs
             private:
                 bool configure()
                 {
-                    logCallback_("Configuring client");
-
                     clientSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
                     if (clientSocketFD_ < 0)
                     {
@@ -110,8 +105,6 @@ namespace libs
 
                 void closeConnection()
                 {
-                    logCallback_("Closing connection");
-
                     serverAddr_.reset();
 
                     if (clientSocketFD_ != kIncorrectSocketValue_)
