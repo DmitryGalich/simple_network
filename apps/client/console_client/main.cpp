@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
         std::cerr << "1 - client name (string)" << std::endl;
         std::cerr << "2 - server port (int)" << std::endl;
         std::cerr << "3 - reconnect timeout in seconds (int)" << std::endl;
+        std::cerr << "Example: ./binary Client 8080 3" << std::endl;
         return -1;
     }
 
@@ -66,8 +67,6 @@ int main(int argc, char *argv[])
     try
     {
         const std::string kAddress("127.0.0.1");
-        int port = 8080;
-
         const std::string kLogFilePath("log.txt");
 
         if (!libs::logger::Logger::instance()->init(kLogFilePath))
@@ -84,7 +83,7 @@ int main(int argc, char *argv[])
 
         if (!client.start({kClientTitle, kAddress, serverPort, reconnectingTimeoutSec}))
         {
-            LOG("Can't run client: " + kAddress + ":" + std::to_string(port));
+            LOG("Can't run client: " + kAddress + ":" + std::to_string(serverPort));
             return -1;
         }
     }
