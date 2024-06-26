@@ -9,6 +9,31 @@
 #include <atomic>
 #include <thread>
 
+namespace
+{
+    int receiveMessageSize(int clientSocket)
+    {
+        int size;
+        if (recv(clientSocket, &size, sizeof(size), 0) < 0)
+        {
+            return -1;
+        }
+        return ntohl(size);
+    }
+
+    std::string receiveMessage(int clientSocket, int size)
+    {
+        std::vector<char> buffer(size + 1);
+
+        if (recv(clientSocket, buffer.data(), size, 0) < 0)
+        {
+            return "Incorrect message";
+        }
+        buffer[size] = '\0';
+        return std::string(buffer.data());
+    }
+}
+
 namespace libs
 {
     namespace network
@@ -67,7 +92,6 @@ namespace libs
             private:
                 bool configure()
                 {
-
                     serverSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
                     if (serverSocketFD_ == kIncorrectSocketValue_)
                     {
@@ -126,17 +150,11 @@ namespace libs
                 {
                     auto handleClient = [&](int clientFd)
                     {
-                        char buffer[1024];
+                        int messageSize = receiveMessageSize(clientFd);
+                        if (messageSize)
+                            close(clientFd);
 
-                        while (true)
-                        {
-                            int bytesRead = read(clientFd, buffer, sizeof(buffer));
-                            if (bytesRead <= 0)
-                                break;
-                        }
-
-                        logCallback_(buffer);
-
+                        logCallback_(receiveMessage(clientFd, messageSize));
                         close(clientFd);
                     };
                     // ==================
@@ -190,7 +208,8 @@ namespace libs
                     return true;
                 }
 
-                void closeConnection()
+                void
+                closeConnection()
                 {
                     events_.reset();
 

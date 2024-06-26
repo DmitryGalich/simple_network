@@ -49,6 +49,12 @@ namespace libs
                             {
                                 logCallback_("Sending to server: " + config_.title_);
 
+                                const int32_t messageSize = htonl(config_.title_.size());
+                                if (!send(clientSocketFD_, &messageSize, sizeof(messageSize), 0))
+                                {
+                                    logCallback_("Failed to send to server");
+                                }
+
                                 if (!send(clientSocketFD_, config_.title_.c_str(), config_.title_.size(), 0))
                                 {
                                     logCallback_("Failed to send to server");
