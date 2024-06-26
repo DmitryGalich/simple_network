@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 
 #include <atomic>
+#include <thread>
 
 namespace libs
 {
@@ -125,6 +126,23 @@ namespace libs
 
                 bool runListeningCycle()
                 {
+                    auto handleClient = [&](int clientFd)
+                    {
+                        char buffer[1024];
+
+                        while (true)
+                        {
+                            int bytesRead = read(clientFd, buffer, sizeof(buffer));
+                            if (bytesRead <= 0)
+                                break;
+                        }
+
+                        logCallback_(buffer);
+
+                        close(clientFd);
+                    };
+                    // ==================
+
                     isRunning_.store(true);
 
                     logCallback_("Listening cycle started");
@@ -139,6 +157,41 @@ namespace libs
                         }
 
                         logCallback_("numEvents: " + std::to_string(numEvents));
+
+                        for (int i = 0; i < numEvents; ++i)
+                        {
+                            if (events_[i].data.fd == serverSocketFD_)
+                            {
+                                struct sockaddr_in clientAddress;
+                                socklen_t clientAddressLength = sizeof(clientAddress);
+                                int clientFd = accept(serverSocketFD_, (struct sockaddr *)&clientAddress, &clientAddressLength);
+                                if (clientFd == -1)
+                                {
+                                    logCallback_("Failed to accept client connection");
+                                    continue;
+                                }
+
+                                logCallback_("Accepted");
+
+                                event_.events = EPOLLIN;
+                                event_.data.fd = clientFd;
+                                if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, clientFd, &event_) == -1)
+                                {
+                                    logCallback_("Failed to add client socket to epoll instance");
+                                    close(clientFd);
+                                    continue;
+                                }
+
+                                std::thread clientThread(handleClient, clientFd);
+                                clientThread.detach();
+                            }
+                            else
+                            {
+                                int clientFd = events_[i].data.fd;
+                                std::thread clientThread(handleClient, clientFd);
+                                clientThread.detach();
+                            }
+                        }
                     }
 
                     logCallback_("Escape from listening cycle");
