@@ -52,7 +52,7 @@ namespace libs
                     std::string title_{"default client"};
                     std::string address_{"127.0.0.1"};
                     int port_{8080};
-                    int reconnectingTimeoutMs_{500};
+                    int reconnectingTimeoutSeconds_{1};
                 };
 
                 Client() = delete;

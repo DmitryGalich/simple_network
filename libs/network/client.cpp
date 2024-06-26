@@ -66,7 +66,7 @@ namespace libs
                         }
 
                         closeConnection();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(config_.reconnectingTimeoutMs_));
+                        std::this_thread::sleep_for(std::chrono::seconds(config_.reconnectingTimeoutSeconds_));
                     }
 
                     return true;
