@@ -66,11 +66,7 @@ namespace libs
                         return false;
                     }
 
-                    if (!runListeningCycle())
-                    {
-                        closeConnection();
-                        return false;
-                    }
+                    runServer();
 
                     closeConnection();
                     return true;
@@ -85,18 +81,6 @@ namespace libs
                 }
 
             private:
-                bool runListeningCycle()
-                {
-                    isRunning_.store(true);
-
-                    while (isRunning_.load())
-                    {
-                    }
-
-                    closeConnection();
-                    return true;
-                }
-
                 bool createAndBind()
                 {
                     serverSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
@@ -152,7 +136,7 @@ namespace libs
                     return true;
                 }
 
-                void runServer(int listen_fd, int epoll_fd)
+                void runServer()
                 {
                     epoll_event events[MAX_EVENTS];
                     char readBuffer[READ_BUFFER_SIZE];
@@ -161,7 +145,7 @@ namespace libs
 
                     while (isRunning_.load())
                     {
-                        int n = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+                        int n = epoll_wait(epollFD_, events, MAX_EVENTS, -1);
                         if (n == -1)
                         {
                             logCallback_("Fail of epoll_wait");
@@ -170,7 +154,7 @@ namespace libs
 
                         for (int i = 0; i < n; ++i)
                         {
-                            if (events[i].data.fd == listen_fd)
+                            if (events[i].data.fd == serverSocketFD_)
                             {
                                 handleNewConnection();
                             }
