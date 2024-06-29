@@ -55,9 +55,6 @@ namespace libs
                 ServerImpl(const ServerImpl &) = default;
                 ServerImpl &operator=(const ServerImpl &) = default;
 
-                ServerImpl(const ServerImpl &&) = delete;
-                ServerImpl &operator=(const ServerImpl &&) = delete;
-
                 ServerImpl(std::function<void(const std::string &)> logCallback) : logCallback_(logCallback)
                 {
                 }

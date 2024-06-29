@@ -1,15 +1,25 @@
 #include "network.h"
 
-#include <unistd.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <cstring>
-
 #include <atomic>
 #include <thread>
-#include <chrono>
+#include <iomanip>
+#include <string>
+
+namespace
+{
+    std::string getCurrentTime()
+    {
+        auto now = std::chrono::system_clock::now();
+        auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() % 1000;
+        std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
+
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&currentTime), "%Y-%m-%d %H:%M:%S.") << std::setw(3) << std::setfill('0') << microseconds;
+        return ss.str();
+    }
+}
 
 namespace libs
 {
@@ -43,34 +53,8 @@ namespace libs
 
                     while (isRunning_.load())
                     {
-                        if (configure())
-                        {
-                            if (connect(clientSocketFD_, reinterpret_cast<struct sockaddr *>(serverAddr_.get()), sizeof(sockaddr_in)) == 0)
-                            {
-                                logCallback_("Sending to server: " + config_.title_);
-
-                                const int32_t messageSize = htonl(config_.title_.size());
-                                if (send(clientSocketFD_, &messageSize, sizeof(messageSize), 0))
-                                {
-                                    if (!send(clientSocketFD_, config_.title_.c_str(), config_.title_.size(), 0))
-                                    {
-                                        logCallback_("Failed to send to server");
-                                    }
-                                }
-                                else
-                                {
-                                    logCallback_("Failed to send to server");
-                                }
-                            }
-                            else
-                            {
-                                logCallback_("Failed to connect to server");
-                            }
-                        }
-                        else
-                        {
-                            logCallback_("Failed to configure client");
-                        }
+                        if (createAndConnect())
+                            communicateWithServer();
 
                         closeConnection();
                         std::this_thread::sleep_for(std::chrono::seconds(config_.reconnectingTimeoutSeconds_));
@@ -78,43 +62,57 @@ namespace libs
 
                     return true;
                 }
+
                 void stop()
                 {
                     if (!isRunning_.load())
                         return;
 
-                    logCallback_("Stopping client");
                     isRunning_.store(false);
                 }
 
             private:
-                bool configure()
+                bool createAndConnect()
                 {
                     clientSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
-                    if (clientSocketFD_ < 0)
+                    if (clientSocketFD_ == -1)
                     {
                         logCallback_("Failed to create socket");
                         return false;
                     }
 
-                    serverAddr_ = std::make_unique<sockaddr_in>();
-                    memset(serverAddr_.get(), 0, sizeof(sockaddr_in));
-                    serverAddr_->sin_family = AF_INET;
-                    serverAddr_->sin_port = htons(config_.port_);
+                    sockaddr_in server_addr;
+                    memset(&server_addr, 0, sizeof(server_addr));
+                    server_addr.sin_family = AF_INET;
+                    server_addr.sin_port = htons(config_.port_);
 
-                    if (inet_pton(AF_INET, config_.address_.c_str(), &serverAddr_->sin_addr) <= 0)
+                    if (inet_pton(AF_INET, config_.address_.c_str(), &server_addr.sin_addr) <= 0)
                     {
-                        logCallback_("Invalid address/ Address not supported");
+                        logCallback_("Failed to bind to address");
+                        return false;
+                    }
+
+                    if (connect(clientSocketFD_, (sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+                    {
+                        logCallback_("Failed to connect");
                         return false;
                     }
 
                     return true;
-                };
+                }
+
+                void communicateWithServer()
+                {
+                    const std::string kMessage("[" + getCurrentTime() + "] \"" + config_.title_ + "\"");
+
+                    if (send(clientSocketFD_, kMessage.c_str(), kMessage.size(), 0) == -1)
+                    {
+                        logCallback_("Failed to send to server");
+                    }
+                }
 
                 void closeConnection()
                 {
-                    serverAddr_.reset();
-
                     if (clientSocketFD_ != kIncorrectSocketValue_)
                         close(clientSocketFD_);
 
@@ -128,8 +126,6 @@ namespace libs
                 int clientSocketFD_{kIncorrectSocketValue_};
 
                 std::function<void(const std::string &)> logCallback_;
-
-                std::unique_ptr<sockaddr_in> serverAddr_;
 
                 std::atomic<bool> isRunning_{false};
             };

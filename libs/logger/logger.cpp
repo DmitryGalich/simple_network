@@ -7,19 +7,9 @@
 #include <ctime>
 #include <sstream>
 #include <string>
+
 namespace
 {
-    std::string getCurrentTime()
-    {
-        auto now = std::chrono::system_clock::now();
-        auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() % 1000;
-        std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
-
-        std::stringstream ss;
-        ss << std::put_time(std::localtime(&currentTime), "%Y-%m-%d %H:%M:%S.") << std::setw(3) << std::setfill('0') << microseconds;
-        return ss.str();
-    }
-
     bool writeToFile(const std::string &filePath, const std::string &message)
     {
         std::ofstream f;
@@ -75,7 +65,9 @@ namespace libs
         {
             {
                 std::lock_guard<std::mutex> lock(queueMutex_);
-                messageQueue_.push("[" + getCurrentTime() + "] " + message);
+                messageQueue_.push(message);
+
+                // messageQueue_.push("[" + getCurrentTime() + "] " + message);
             }
             condition_.notify_one();
         }

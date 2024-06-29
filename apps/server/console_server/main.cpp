@@ -9,8 +9,10 @@
 #include <thread>
 #include <atomic>
 
-void wait_for_user_command(libs::network::server::Server &server)
+void waitForUserCommand(libs::network::server::Server &server)
 {
+    LOG("Input \'q\' to quit");
+
     while (true)
     {
         std::string input;
@@ -63,8 +65,7 @@ int main(int argc, char *argv[])
         libs::network::server::Server server([&](const std::string &message)
                                              { LOG(message); });
 
-        std::future<void> user_command_future = std::async(&wait_for_user_command, std::ref(server));
-        LOG("Input \'q\' to quit");
+        std::future<void> user_command_future = std::async(&waitForUserCommand, std::ref(server));
 
         if (!server.start({kAddress, serverPort, 500}))
         {
