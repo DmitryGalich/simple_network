@@ -109,6 +109,8 @@ namespace libs
                     {
                         logCallback_("Failed to send to server");
                     }
+
+                    logCallback_("Message sent: " + kMessage);
                 }
 
                 void closeConnection()

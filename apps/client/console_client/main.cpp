@@ -1,13 +1,8 @@
 #include <iostream>
-#include <functional>
+#include <future>
 
 #include "logger.h"
 #include "network.h"
-
-#include <coroutine>
-#include <future>
-#include <thread>
-#include <atomic>
 
 void waitForUserCommand(libs::network::client::Client &client)
 {

@@ -1,17 +1,10 @@
 #include "network.h"
 
-#include <unistd.h>
 #include <sys/epoll.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-
 #include <atomic>
 #include <thread>
-
-#include <iostream>
-#include <cerrno>
 #include <cstring>
 
 #define MAX_EVENTS 10
@@ -161,7 +154,7 @@ namespace libs
 
                     isRunning_.store(true);
 
-                    logCallback_("Server started...");
+                    logCallback_("Server(" + config_.address_ + ":" + std::to_string(config_.port_) + ") started...");
 
                     while (isRunning_.load())
                     {
