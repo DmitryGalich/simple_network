@@ -66,9 +66,9 @@ int main(int argc, char *argv[])
         std::future<void> user_command_future = std::async(&wait_for_user_command, std::ref(server));
         LOG("Input \'q\' to quit");
 
-        if (!server.start({kAddress, serverPort, 10, 10, 500}))
+        if (!server.start({kAddress, serverPort, 500}))
         {
-            LOG("Can't run server: " + kAddress + ":" + std::to_string(serverPort));
+            LOG("Fail of running server: " + kAddress + ":" + std::to_string(serverPort));
             return -1;
         }
     }

@@ -17,8 +17,6 @@ namespace libs
                 {
                     std::string address_{"127.0.0.1"};
                     int port_{8080};
-                    int maxEvents_ = 10;
-                    int maxClients_ = 10;
                     int waitingTimeout_ = 100;
                 };
 

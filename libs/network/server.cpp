@@ -5,34 +5,17 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include <atomic>
 #include <thread>
 
-namespace
-{
-    int receiveMessageSize(int clientSocket)
-    {
-        int size;
-        if (recv(clientSocket, &size, sizeof(size), 0) < 0)
-        {
-            return -1;
-        }
-        return ntohl(size);
-    }
+#include <iostream>
+#include <cerrno>
+#include <cstring>
 
-    std::string receiveMessage(int clientSocket, int size)
-    {
-        std::vector<char> buffer(size + 1);
-
-        if (recv(clientSocket, buffer.data(), size, 0) < 0)
-        {
-            return "Incorrect message";
-        }
-        buffer[size] = '\0';
-        return std::string(buffer.data());
-    }
-}
+#define MAX_EVENTS 10
+#define READ_BUFFER_SIZE 1024
 
 namespace libs
 {
@@ -71,16 +54,28 @@ namespace libs
 
                     config_ = config;
 
-                    if (!configure())
+                    if (!createAndBind())
+                    {
+                        closeConnection();
                         return false;
+                    }
 
-                    logCallback_("Server configured on port: " + std::to_string(config_.port_));
+                    if (!setupEpoll())
+                    {
+                        closeConnection();
+                        return false;
+                    }
 
                     if (!runListeningCycle())
+                    {
+                        closeConnection();
                         return false;
+                    }
 
+                    closeConnection();
                     return true;
                 }
+
                 void stop()
                 {
                     if (!isRunning_.load())
@@ -90,129 +85,172 @@ namespace libs
                 }
 
             private:
-                bool configure()
-                {
-                    serverSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
-                    if (serverSocketFD_ == kIncorrectSocketValue_)
-                    {
-                        logCallback_("Failed to create socket");
-                        return false;
-                    }
-
-                    struct sockaddr_in serverAddress;
-                    serverAddress.sin_family = AF_INET;
-                    serverAddress.sin_addr.s_addr = inet_addr(config_.address_.c_str());
-                    serverAddress.sin_port = htons(config_.port_);
-
-                    if (bind(serverSocketFD_, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
-                    {
-                        logCallback_("Failed to bind socket");
-                        closeConnection();
-                        return false;
-                    }
-
-                    if (listen(serverSocketFD_, config_.maxClients_) < 0)
-                    {
-                        logCallback_("Failed to listen socket");
-                        closeConnection();
-                        return false;
-                    }
-
-                    epollFD_ = epoll_create1(0);
-                    if (epollFD_ == kIncorrectSocketValue_)
-                    {
-                        logCallback_("Failed to create epoll instance");
-                        closeConnection();
-                        return false;
-                    }
-
-                    event_.events = EPOLLIN;
-                    event_.data.fd = serverSocketFD_;
-                    if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, serverSocketFD_, &event_) == -1)
-                    {
-                        logCallback_("Failed to add server socket to epoll instance");
-                        closeConnection();
-                        return false;
-                    }
-
-                    events_ = std::make_unique<struct epoll_event[]>(config_.maxEvents_);
-                    if (!events_)
-                    {
-                        logCallback_("Failed to create epoll events array");
-                        closeConnection();
-                        return false;
-                    }
-
-                    return true;
-                };
-
                 bool runListeningCycle()
                 {
-                    auto handleClient = [&](int clientFd)
-                    {
-                        int messageSize = receiveMessageSize(clientFd);
-                        if (messageSize)
-                            close(clientFd);
-
-                        logCallback_(receiveMessage(clientFd, messageSize));
-                        close(clientFd);
-                    };
-                    // ==================
-
                     isRunning_.store(true);
 
                     while (isRunning_.load())
                     {
-                        int numEvents = epoll_wait(epollFD_, events_.get(), config_.maxEvents_, config_.waitingTimeout_);
-                        if (numEvents == -1)
-                        {
-                            logCallback_("numEvents == -1");
-                            continue;
-                        }
-
-                        for (int i = 0; i < numEvents; ++i)
-                        {
-                            if (events_[i].data.fd == serverSocketFD_)
-                            {
-                                struct sockaddr_in clientAddress;
-                                socklen_t clientAddressLength = sizeof(clientAddress);
-                                int clientFd = accept(serverSocketFD_, (struct sockaddr *)&clientAddress, &clientAddressLength);
-                                if (clientFd == -1)
-                                {
-                                    logCallback_("Failed to accept client connection");
-                                    continue;
-                                }
-
-                                event_.events = EPOLLIN;
-                                event_.data.fd = clientFd;
-                                if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, clientFd, &event_) == -1)
-                                {
-                                    logCallback_("Failed to add client socket to epoll instance");
-                                    close(clientFd);
-                                    continue;
-                                }
-
-                                std::thread clientThread(handleClient, clientFd);
-                                clientThread.detach();
-                            }
-                            else
-                            {
-                                int clientFd = events_[i].data.fd;
-                                std::thread clientThread(handleClient, clientFd);
-                                clientThread.detach();
-                            }
-                        }
                     }
 
                     closeConnection();
                     return true;
                 }
 
-                void
-                closeConnection()
+                bool createAndBind()
                 {
-                    events_.reset();
+                    serverSocketFD_ = socket(AF_INET, SOCK_STREAM, 0);
+                    if (serverSocketFD_ == -1)
+                    {
+                        logCallback_("Failed to create socket");
+                        return false;
+                    }
 
+                    sockaddr_in serverAddr;
+                    memset(&serverAddr, 0, sizeof(serverAddr));
+                    serverAddr.sin_family = AF_INET;
+                    serverAddr.sin_port = htons(config_.port_);
+                    if (inet_pton(AF_INET, config_.address_.c_str(), &serverAddr.sin_addr) == -1)
+                    {
+                        logCallback_("Invalid address/ Address not supported");
+                        return false;
+                    }
+
+                    if (bind(serverSocketFD_, (sockaddr *)&serverAddr, sizeof(serverAddr)) == -1)
+                    {
+                        logCallback_("Failed to bind");
+                        return false;
+                    }
+
+                    if (listen(serverSocketFD_, SOMAXCONN) == -1)
+                    {
+                        logCallback_("Failed to listen");
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                bool setupEpoll()
+                {
+                    epollFD_ = epoll_create1(0);
+                    if (epollFD_ == -1)
+                    {
+                        logCallback_("Failed to create epoll");
+                        return false;
+                    }
+
+                    epoll_event ev;
+                    ev.events = EPOLLIN;
+                    ev.data.fd = serverSocketFD_;
+                    if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, serverSocketFD_, &ev) == -1)
+                    {
+                        logCallback_("Failed to configure epoll");
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                void runServer(int listen_fd, int epoll_fd)
+                {
+                    epoll_event events[MAX_EVENTS];
+                    char readBuffer[READ_BUFFER_SIZE];
+
+                    isRunning_.store(true);
+
+                    while (isRunning_.load())
+                    {
+                        int n = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+                        if (n == -1)
+                        {
+                            logCallback_("Fail of epoll_wait");
+                            break;
+                        }
+
+                        for (int i = 0; i < n; ++i)
+                        {
+                            if (events[i].data.fd == listen_fd)
+                            {
+                                handleNewConnection();
+                            }
+                            else
+                            {
+                                // Handle data from a client
+                                int client_fd = events[i].data.fd;
+                                int bytes_read = read(client_fd, readBuffer, READ_BUFFER_SIZE);
+                                if (bytes_read == -1)
+                                {
+                                    perror("read");
+                                    close(client_fd);
+                                    continue;
+                                }
+                                else if (bytes_read == 0)
+                                {
+                                    std::cout << "Client disconnected" << std::endl;
+                                    close(client_fd);
+                                }
+                                else
+                                {
+                                    std::cout << "Received: " << std::string(readBuffer, bytes_read) << std::endl;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                bool setNonBlocking(int fd)
+                {
+                    int flags = fcntl(fd, F_GETFL, 0);
+                    if (flags == -1)
+                    {
+                        logCallback_("Failed to get flags");
+                        return false;
+                    }
+
+                    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+                    {
+                        logCallback_("Failed to set flags");
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                void handleNewConnection()
+                {
+                    sockaddr_in clientAddr;
+                    socklen_t clientAddrLen = sizeof(clientAddr);
+                    int clientFD = accept(serverSocketFD_, (sockaddr *)&clientAddr, &clientAddrLen);
+                    if (clientFD == -1)
+                    {
+                        logCallback_("Failed to accept");
+                        return;
+                    }
+
+                    if (!setNonBlocking(clientFD))
+                    {
+                        logCallback_("Failed to set nonblocking");
+                        close(clientFD);
+                        return;
+                    }
+
+                    epoll_event ev;
+                    ev.events = EPOLLIN | EPOLLET;
+                    ev.data.fd = clientFD;
+
+                    if (epoll_ctl(epollFD_, EPOLL_CTL_ADD, clientFD, &ev) == -1)
+                    {
+                        logCallback_("Failed to add new client");
+                        close(clientFD);
+                        return;
+                    }
+
+                    logCallback_("Accepted connection from " + std::string(inet_ntoa(clientAddr.sin_addr)) + ":" + std::to_string(ntohs(clientAddr.sin_port)));
+                }
+
+                void closeConnection()
+                {
                     if (epollFD_ != kIncorrectSocketValue_)
                         close(epollFD_);
 
@@ -229,9 +267,6 @@ namespace libs
                 const int kIncorrectSocketValue_{-1};
                 int serverSocketFD_{kIncorrectSocketValue_};
                 int epollFD_{kIncorrectSocketValue_};
-
-                struct epoll_event event_;
-                std::unique_ptr<struct epoll_event[]> events_;
 
                 std::function<void(const std::string &)> logCallback_;
 
