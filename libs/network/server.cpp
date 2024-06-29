@@ -17,6 +17,29 @@
 #define MAX_EVENTS 10
 #define READ_BUFFER_SIZE 1024
 
+namespace
+{
+    void handleExistingConection(int clientFD, std::function<void(const std::string &)> logCallback)
+    {
+        char readBuffer[READ_BUFFER_SIZE];
+        int bytes_read = read(clientFD, readBuffer, READ_BUFFER_SIZE);
+        if (bytes_read == -1)
+        {
+            logCallback("Failed to read");
+            close(clientFD);
+        }
+        else if (bytes_read == 0)
+        {
+            logCallback("Client disconnected");
+            close(clientFD);
+        }
+        else
+        {
+            logCallback(std::string(readBuffer, bytes_read));
+        }
+    }
+}
+
 namespace libs
 {
     namespace network
@@ -139,7 +162,6 @@ namespace libs
                 void runServer()
                 {
                     epoll_event events[MAX_EVENTS];
-                    char readBuffer[READ_BUFFER_SIZE];
 
                     isRunning_.store(true);
 
@@ -160,24 +182,9 @@ namespace libs
                             }
                             else
                             {
-                                // Handle data from a client
-                                int client_fd = events[i].data.fd;
-                                int bytes_read = read(client_fd, readBuffer, READ_BUFFER_SIZE);
-                                if (bytes_read == -1)
-                                {
-                                    perror("read");
-                                    close(client_fd);
-                                    continue;
-                                }
-                                else if (bytes_read == 0)
-                                {
-                                    std::cout << "Client disconnected" << std::endl;
-                                    close(client_fd);
-                                }
-                                else
-                                {
-                                    std::cout << "Received: " << std::string(readBuffer, bytes_read) << std::endl;
-                                }
+                                std::thread clientThread(
+                                    &handleExistingConection, events[i].data.fd, logCallback_);
+                                clientThread.detach();
                             }
                         }
                     }
