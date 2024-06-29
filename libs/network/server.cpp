@@ -30,7 +30,6 @@ namespace
         }
         else if (bytes_read == 0)
         {
-            logCallback("Client disconnected");
             close(clientFD);
         }
         else
@@ -165,12 +164,14 @@ namespace libs
 
                     isRunning_.store(true);
 
+                    logCallback_("Server started...");
+
                     while (isRunning_.load())
                     {
-                        int n = epoll_wait(epollFD_, events, MAX_EVENTS, -1);
+                        int n = epoll_wait(epollFD_, events, MAX_EVENTS, config_.waitingTimeoutMilliseconds_);
                         if (n == -1)
                         {
-                            logCallback_("Fail of epoll_wait");
+                            logCallback_("Failed to epoll_wait");
                             break;
                         }
 
@@ -188,6 +189,8 @@ namespace libs
                             }
                         }
                     }
+
+                    logCallback_("Escaped from listening cycle");
                 }
 
                 bool setNonBlocking(int fd)
@@ -236,8 +239,6 @@ namespace libs
                         close(clientFD);
                         return;
                     }
-
-                    logCallback_("Accepted connection from " + std::string(inet_ntoa(clientAddr.sin_addr)) + ":" + std::to_string(ntohs(clientAddr.sin_port)));
                 }
 
                 void closeConnection()

@@ -17,7 +17,7 @@ namespace libs
                 {
                     std::string address_{"127.0.0.1"};
                     int port_{8080};
-                    int waitingTimeout_ = 100;
+                    int waitingTimeoutMilliseconds_ = 100;
                 };
 
                 Server() = delete;
